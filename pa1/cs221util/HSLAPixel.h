@@ -53,6 +53,8 @@ namespace cs221util {
     bool operator== (HSLAPixel const & other) const ;
     bool operator!= (HSLAPixel const & other) const ;
     bool operator<  (HSLAPixel const & other) const ;
+
+    double distanceTo(HSLAPixel const & other) const ;
   };
 
   /**

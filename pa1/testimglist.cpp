@@ -15,6 +15,7 @@ using namespace cs221util;
 void TestConstructorRender();
 void TestCarveMode0();
 void TestRenderMode2();
+void TestCarveMode1();
 
 int main(void) {
 
@@ -22,6 +23,7 @@ int main(void) {
   // you may comment and uncomment these as needed
   TestConstructorRender();
   TestCarveMode0();
+  TestCarveMode1();
   TestRenderMode2();
 
   return 0;
@@ -52,6 +54,20 @@ void TestConstructorRender() {
   else {
     cout << "Input PNG image not read. Exiting..." << endl;
   }
+}
+
+void TestCarveMode1() {
+    cout << "Entered TestCarveMode1 function" << endl;
+    PNG inimg;
+    inimg.readFromFile("input-images/5x6.png");
+    ImgList list5x6(inimg);
+    list5x6.Carve(1, 1);
+    PNG outputimg10 = list5x6.Render(false, 0);
+    PNG outputimg11 = list5x6.Render(true, 0);
+    PNG outputimg12 = list5x6.Render(true, 1);
+    outputimg10.writeToFile("output-images/5x6-0-0-test.png");
+    outputimg11.writeToFile("output-images/5x6-1-0-test.png");
+    outputimg12.writeToFile("output-images/5x6-1-1-test.png");
 }
 
 void TestCarveMode0() {

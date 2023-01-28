@@ -72,6 +72,12 @@ namespace cs221util {
     bool readFromFile(string const & fileName);
 
     /**
+      * converts hsla pixels from hsl to rgb and back
+      * so as to incur the rounding that would happen
+      * upon writing to file.
+      */
+    void convert();
+    /**
       * Writes a PNG image to a file.
       * @param fileName Name of the file to be written.
       * @return true, if the image was successfully written.
@@ -108,7 +114,7 @@ namespace cs221util {
       * @param newHeight New height of the image.
       */
     void resize(unsigned int newWidth, unsigned int newHeight);
-      
+
   private:
     unsigned int width_;            /*< Width of the image */
     unsigned int height_;           /*< Height of the image */

@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <functional>
+#include <cassert>
 #include "lodepng/lodepng.h"
 #include "PNG.h"
 #include "RGB_HSL.h"
@@ -52,8 +54,20 @@ namespace cs221util {
     return *this;
   }
 
-  bool PNG::operator== (PNG const & other) const {
-    return (imageData_ == other.imageData_);
+  bool PNG::operator==(PNG const& other) const {
+    if (width_ != other.width_) { return false; }
+    if (height_ != other.height_) { return false; }
+
+    bool flag = true;
+    for (unsigned i = 0; i < width_ * height_; i++) {
+      HSLAPixel& p1 = imageData_[i];
+      HSLAPixel& p2 = other.imageData_[i];
+      if (!(p1 == p2)) {
+        cout << "x: " << i % width_ << " y: " << i / width_ << " " << p1 << " " << p2 << endl; flag = false;
+      }
+    }
+
+    return flag;
   }
 
   bool PNG::operator!= (PNG const & other) const {
@@ -115,8 +129,27 @@ namespace cs221util {
     return true;
   }
 
-  bool PNG::writeToFile(string const & fileName) {
-    unsigned char *byteData = new unsigned char[width_ * height_ * 4];
+  void PNG::convert() {
+    for (unsigned i = 0; i < width_ * height_; i++) {
+      hslaColor hsl;
+      hsl.h = imageData_[i].h;
+      hsl.s = imageData_[i].s;
+      hsl.l = imageData_[i].l;
+      hsl.a = imageData_[i].a;
+
+      rgbaColor rgb = hsl2rgb(hsl);
+      hsl = rgb2hsl(rgb);
+
+      HSLAPixel& pixel = imageData_[i];
+      pixel.h = hsl.h;
+      pixel.s = hsl.s;
+      pixel.l = hsl.l;
+      pixel.a = hsl.a;
+    }
+  }
+
+  bool PNG::writeToFile(string const& fileName) {
+    unsigned char* byteData = new unsigned char[width_ * height_ * 4];
 
     for (unsigned i = 0; i < width_ * height_; i++) {
       hslaColor hsl;
@@ -174,4 +207,5 @@ namespace cs221util {
     height_ = newHeight;
     imageData_ = newImageData;
   }
+
 }

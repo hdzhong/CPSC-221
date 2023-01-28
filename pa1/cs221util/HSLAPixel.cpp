@@ -99,7 +99,19 @@ namespace cs221util {
       return false;
   }
 
-  std::ostream & operator<<(std::ostream & out, HSLAPixel const & pixel) {
+  // This ignores alpha
+  double HSLAPixel::distanceTo(HSLAPixel const & other) const {
+    double h2 = other.h;
+    double s2 = other.s;
+    double l2 = other.l;
+    //    double a2 = other.a;
+    return( sqrt(pow(sin(h)*s*l - sin(h2)*s2*l2, 2) +
+		 pow(cos(h)*s*l - cos(h2)*s2*l2, 2) +
+		 pow(l - l2, 2)) );
+  }
+
+
+   std::ostream & operator<<(std::ostream & out, HSLAPixel const & pixel) {
     out << "(" << pixel.h << ", " << pixel.s << ", " << pixel.l << (pixel.a != 1 ? ", " + std::to_string(pixel.a) : "") << ")";
 
     return out;

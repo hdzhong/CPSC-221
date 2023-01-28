@@ -28,7 +28,7 @@
 *      two pixels with hues 5 and 355 differ by 10.
 */
 double HueDiff(double hue1, double hue2) {
-  return fmin(fabs(hue1 - hue2), fabs(hue2 + 360 - hue1));
+    return fmin(fabs(hue1 - hue2), fabs(360 + fmin(hue1, hue2) - fmax(hue1, hue2)));
 }
 
 /*********************
@@ -54,45 +54,47 @@ ImgList::ImgList(PNG& img) {
   southeast = NULL;
   unsigned width = img.width();
   unsigned height = img.height();
-  ImgNode * curr = northwest;
  
   // stores the head of linked lists of each row
-  ImgNode* head[height];
-  ImgNode *righttemp, *newptr;
+  ImgNode *head[height];
+  ImgNode *eastTemp, *newNode;
  
     // Firstly, we create y (height) linked lists
     // by setting all the right nodes of every row
     for (unsigned int y = 0; y < height; y++) {
-        // initially set the head of ith row as NULL
+        // initially set the head of yth row as NULL
         head[y] = NULL;
         for (unsigned int x = 0; x < width; x++) {
-            newptr = new ImgNode();
+            newNode = new ImgNode();
             HSLAPixel *pixel = img.getPixel(x, y);
-            newptr->colour = *pixel;
+            newNode->colour = *pixel;
             // stores the first node as northwest
             if (!northwest) {
-                northwest = newptr;
+                northwest = newNode;
             }
             if (!head[y]) {
-                head[y] = newptr;
+                head[y] = newNode;
             } else {
-                righttemp->east = newptr;
-                newptr->west = righttemp;
+                eastTemp->east = newNode;
+                newNode->west = eastTemp;
             }
-            righttemp = newptr;
+            eastTemp = newNode;
         }
     }
  
-    // Then, for every ith and (i+1)th list,
+    // Then, for every yth and (y+1)th list,
     // we set the down pointers of
-    // every node of ith list
+    // every node of yth list
     // with its corresponding
-    // node of (i+1)th list
+    // node of (y+1)th list
     for (unsigned int y = 0; y < height - 1; y++) {
         ImgNode *temp1 = head[y], *temp2 = head[y + 1];
         while (temp1 && temp2) {
             temp1->south = temp2;
             temp2->north = temp1;
+            if (temp2->east == NULL) {
+                southeast = temp2;
+            }
             temp1 = temp1->east;
             temp2 = temp2->east;
         }
@@ -172,7 +174,6 @@ unsigned int ImgList::GetDimensionY() const {
   ImgNode * curr = northwest;
   while (curr) {
     count++;
-    count += curr->skipdown;
     curr = curr->south;
   }
   return count;
@@ -187,7 +188,14 @@ unsigned int ImgList::GetDimensionY() const {
 */
 unsigned int ImgList::GetDimensionFullX() const {
   // replace the following line with your implementation
-  return -1;
+    unsigned count = 0;
+    ImgNode * curr = northwest;
+    while (curr) {
+        count++;
+        count += curr->skipleft;
+        curr = curr->east;
+    }
+    return count;
 }
 
 /*
@@ -212,13 +220,41 @@ unsigned int ImgList::GetDimensionFullX() const {
 ImgNode* ImgList::SelectNode(ImgNode* rowstart, int selectionmode) {
   // add your implementation below
   if (selectionmode == 0) {
-    ImgNode * curr = rowstart;
-    ImgNode * min = curr;
-    while (curr) {
-      if (curr->colour->l )
+    ImgNode * curr = rowstart->east;
+    ImgNode * min = curr; // this makes it so that the min cannot be the first node
+    if (curr->east->east == NULL) {
+        return min;
     }
+    while (curr->east) { //stops before rightmost node
+      if (min->colour.l > curr->east->colour.l && curr->east->east) {
+          min = curr->east;
+      }
+      curr = curr->east;
+    }
+    return min;
+  } else {
+      ImgNode * curr = rowstart->east;
+      ImgNode * min = curr;
+      if (curr->east->east == NULL) {
+          return min;
+      }
+      double minHueDiff = 1000;
+      while (curr->east) {
+          double currHueDiff = 0;
+          // hue diff left
+          currHueDiff += HueDiff(curr->west->colour.h, curr->colour.h);
+          // hue diff right
+          currHueDiff += HueDiff(curr->colour.h, curr->east->colour.h);
+          if (minHueDiff > currHueDiff) {
+              cout << minHueDiff << endl;
+              cout << currHueDiff << endl;
+              minHueDiff = currHueDiff;
+              min = curr;
+          }
+          curr = curr->east;
+      }
+      return min;
   }
-  return NULL;
 }
 
 /*
@@ -246,11 +282,102 @@ ImgNode* ImgList::SelectNode(ImgNode* rowstart, int selectionmode) {
 */
 PNG ImgList::Render(bool fillgaps, int fillmode) const {
   // Add/complete your implementation below
-  // if (!fillgaps) {
+  PNG outpng(this->GetDimensionFullX(), this->GetDimensionY());
+  ImgNode * head = northwest;
+  if (!fillgaps) {
+      outpng.resize(this->GetDimensionX(), this->GetDimensionY());
+      for (unsigned y = 0; y < outpng.height(); y++) {
+          ImgNode *curr = head;
+          for (unsigned x = 0; x < outpng.width(); x++) {
+              HSLAPixel *pixel = outpng.getPixel(x, y);
+              pixel->h = curr->colour.h;
+              pixel->l = curr->colour.l;
+              pixel->s = curr->colour.s;
+              pixel->a = curr->colour.a;
+              curr = curr->east;
+          }
+          head = head->south;
+      }
+  } else {
+      if (fillmode == 0) {
+          for (unsigned y = 0; y < outpng.height(); y++) {
+              ImgNode *curr = head;
+              unsigned gap = curr->skipright;
+              for (unsigned x = 0; x < outpng.width(); x++) {
+                  HSLAPixel *pixel = outpng.getPixel(x, y);
+                  pixel->h = curr->colour.h;
+                  pixel->l = curr->colour.l;
+                  pixel->s = curr->colour.s;
+                  pixel->a = curr->colour.a;
+                  if (gap <= 0 && curr->east) {
+                      curr = curr->east;
+                      gap = curr->skipright;
+                  } else {
+                      gap--;
+                  }
+              }
+              head = head->south;
+          }
+      }
+      if (fillmode == 1) {
+          for (unsigned y = 0; y < outpng.height(); y++) {
+              ImgNode *curr = head;
+              unsigned gap = 0;
+              for (unsigned x = 0; x < outpng.width(); x++) {
+                  HSLAPixel *pixel = outpng.getPixel(x, y);
+                  if (curr->skipright > 0 && gap >= 1) {
+                      ImgNode * next = curr->east;
+                      double hue;
+                      double hue1 = (curr->colour.h + next->colour.h) / 2;
+                      if (hue1 >= 360) {
+                          hue1 = hue1 - 360;
+                      }
+                      double hue2 = hue1 + 180;
+                      if (hue2 >= 360) {
+                          hue2 = hue2 - 360;
+                      }
 
-  // }
-  PNG outpng; //this will be returned later. Might be a good idea to resize it at some point.
-  
+                      if (HueDiff(hue1, curr->colour.h) > HueDiff(hue2, curr->colour.h)) {
+                          hue = hue2;
+                      } else {
+                          hue = hue1;
+                      }
+
+                      if (HueDiff(curr->colour.h, next->colour.h) == 180) {
+                          if (hue1 > hue2) {
+                              hue = hue2;
+                          } else {
+                              hue = hue1;
+                          }
+                      }
+
+                      pixel->h = hue;
+                      pixel->s = (curr->colour.s + next->colour.s) / 2;
+                      pixel->l = (curr->colour.l + next->colour.l) / 2;
+                      pixel->a = (curr->colour.a + next->colour.a) / 2;
+                      gap++;
+                      if (gap == (curr->skipright + 1)) {
+                          curr = curr->east;
+                          gap = 0;
+                      }
+                  } else {
+                      pixel->h = curr->colour.h;
+                      pixel->l = curr->colour.l;
+                      pixel->s = curr->colour.s;
+                      pixel->a = curr->colour.a;
+                      if (curr->skipright > 0 && gap == 0) {
+                          gap++;
+                      }
+                      if (curr->east && curr->skipright == 0) {
+                          curr = curr->east;
+                      }
+                  }
+              }
+              head = head->south;
+          }
+      }
+  }
+   //this will be returned later. Might be a good idea to resize it at some point.
   return outpng;
 }
 
@@ -270,7 +397,38 @@ PNG ImgList::Render(bool fillgaps, int fillmode) const {
 */
 void ImgList::Carve(int selectionmode) {
   // add your implementation here
-  
+  ImgNode * head = northwest;
+  while (head) {
+      if (head->east->east == NULL) {
+          return;
+      }
+      ImgNode * curr = SelectNode(head, selectionmode);
+
+      if (curr->east != nullptr) {
+          curr->east->skipleft++;
+          curr->east->west = curr->west;
+      }
+      if (curr->west != nullptr) {
+          curr->west->skipright++;
+          curr->west->east = curr->east;
+      }
+      if (curr->north != nullptr) {
+          curr->north->skipdown++;
+          curr->north->south = curr->south;
+      }
+      if (curr->south != nullptr) {
+          curr->south->skipup++;
+          curr->south->north = curr->north;
+      }
+      curr->east = nullptr;
+      curr->west = nullptr;
+      curr->north = nullptr;
+      curr->south = nullptr;
+
+      delete curr;
+
+      head = head->south;
+  }
 }
 
 // note that a node on the boundary will never be selected for removal
@@ -289,7 +447,13 @@ void ImgList::Carve(int selectionmode) {
 */
 void ImgList::Carve(unsigned int rounds, int selectionmode) {
   // add your implementation here
-  
+  if (rounds >= (ImgList().GetDimensionFullX() - 2)) {
+      rounds = (ImgList().GetDimensionFullX() - 2);
+  }
+  while (rounds > 0) {
+      Carve(selectionmode);
+      rounds--;
+  }
 }
 
 
@@ -301,7 +465,21 @@ void ImgList::Carve(unsigned int rounds, int selectionmode) {
 */
 void ImgList::Clear() {
   // add your implementation here
-  
+  ImgNode * head = northwest;
+
+  while (head) {
+      ImgNode * curr = head;
+      ImgNode * next_head = head->south;
+      while (curr) {
+          ImgNode * temp = curr;
+          curr = curr->east;
+          delete temp;
+      }
+      head = next_head;
+  }
+  head = NULL;
+  northwest = NULL;
+  southeast = NULL;
 }
 
 /* ************************
@@ -314,7 +492,7 @@ void ImgList::Clear() {
 */
 void ImgList::Copy(const ImgList& otherlist) {
   // add your implementation here
-  
+
 }
 
 /*************************************************************************************************
